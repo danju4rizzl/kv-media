@@ -1,0 +1,20 @@
+# Words and phrases kvm removes as fillers. One per line. Lines starting with # are ignored.
+#
+# Stretched spellings are matched automatically:
+#   "um" also catches umm, ummmm, uum ...   "ah" also catches ahh, ahhhh ...
+# Phrases work too ("you know"), but be careful: everything listed here is removed EVERY time
+# it is said, so only add words you never mean to say (e.g. adding "like" or "so" removes
+# every "like" and "so").
+#
+# You can also put your own fillers.txt in the folder you run kvm from, or pass --words-file.
+
+um
+uh
+uhm
+er
+erm
+ah
+ahm
+eh
+hm
+mm

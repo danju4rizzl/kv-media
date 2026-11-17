@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kv-media"
+dynamic = ["version"]
+description = "kvm: clean up audio and video recordings from the command line."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+dependencies = ["google-genai>=3.0"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+kvm = "kv_media.cli:main"
+
+[tool.setuptools]
+packages = ["kv_media"]
+
+[tool.setuptools.dynamic]
+version = { attr = "kv_media.__version__" }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+kv_media = ["fillers.txt"]
