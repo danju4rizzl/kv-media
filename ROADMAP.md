@@ -134,7 +134,7 @@ standard Whisper tends to drop them. Local Whisper stays a later option (item 9)
 
 ## Open notes
 - Runs on both systems: WSL (FFmpeg 6.1, `.venv`) and Windows (Python 3.14, FFmpeg 8.1,
-  `.venv-win`, launchers `kvm.cmd` / `kvm` in `C:\Users\pc\.local\bin`). Run tests on both.
+  `.venv-win`, launchers `kvm.cmd` / `kvm` in `%USERPROFILE%\.local\bin`). Run tests on both.
 - Default pause threshold (-35 dB) found only 4 pauses on the test lecture; tune on more real
   recordings before changing the default.
 

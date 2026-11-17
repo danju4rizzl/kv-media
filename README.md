@@ -14,16 +14,20 @@ virtual environment (a venv only works on the system that created it).
 **Windows** (PowerShell, cmd or Git Bash):
 
 ```powershell
-cd C:\Users\pc\dev\others\kv-media
+git clone https://github.com/danju4rizzl/kv-media.git
+cd kv-media
 py -m venv .venv-win
 .venv-win\Scripts\python -m pip install -e ".[dev]"
 ```
 
-Then `kvm` works from any folder through two small launchers in `C:\Users\pc\.local\bin`
-(already on the user PATH): `kvm.cmd` (PowerShell / cmd) and `kvm` (Git Bash), both calling
-`.venv-win\Scripts\kvm.exe`. Open a new terminal after creating them.
+To run `kvm` from any folder, put a launcher in a folder on your PATH (e.g. `%USERPROFILE%\.local\bin`):
 
-**WSL / Linux:**
+- `kvm.cmd` (PowerShell / cmd): `@"C:\path\to\kv-media\.venv-win\Scripts\kvm.exe" %*`
+- `kvm` (Git Bash): `exec "/c/path/to/kv-media/.venv-win/Scripts/kvm.exe" "$@"`
+
+Open a new terminal afterwards. (Or simply add `.venv-win\Scripts` to your PATH.)
+
+**WSL / Linux** (after cloning):
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
@@ -105,4 +109,4 @@ python -m pytest
 
 ## License
 
-MIT
+[MIT](LICENSE)
