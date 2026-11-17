@@ -1,6 +1,7 @@
 # AGENTS.md — kv-media
 
 Rules for any AI agent (or human) working on this project.
+Just want to install and use kvm for a user? Follow [llms.txt](llms.txt) instead.
 
 ## Process
 - **Read `ROADMAP.md` first.** Build only the item marked `Next`, one feature at a time.

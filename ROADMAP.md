@@ -130,6 +130,20 @@ standard Whisper tends to drop them. Local Whisper stays a later option (item 9)
 - Auto zoom on cuts / cursor, 9:16 reframing, auto-blur secrets, overlays, chapters — `Idea`
 - Rule: run after cuts and speed, in the **same final encode pass**.
 
+## Phase 4 — Web API & free hosting (demo)
+
+### 11. Web API + Docker + Hugging Face Space — `Planned`
+- **Full plan: [docs/web-api-plan.md](docs/web-api-plan.md)** (flow, endpoints, layout, Dockerfile,
+  HF Space setup, safety, milestones A0-C).
+- FastAPI (`kv_media/web/`, optional `[web]` extra) calling `pipeline.make_plan` / `execute` directly.
+  No agent framework: kvm is a fixed pipeline.
+- Job flow mirrors the wizard: upload → plan + preview (JSON) → render → download file + cut report.
+- One Docker image (`python:3.12-slim` + FFmpeg), port 7860; also runs on Cloud Run via `PORT`.
+- Hosted free on a **Hugging Face Space** (Docker SDK, CPU basic); `GEMINI_API_KEY` as a Space
+  secret; synced from GitHub by an Action. Gemini free tier for word cuts.
+- Small refactors first: cache/config dirs from env, engine output via logging, `preview_dict`.
+- Prerequisite: item 2b (word cuts checked on real recordings).
+
 ---
 
 ## Open notes
@@ -147,3 +161,6 @@ standard Whisper tends to drop them. Local Whisper stays a later option (item 9)
 - 2026-11-17 — Item 2 shipped (v0.2.0); 2b (real-file tuning) is Next.
 - 2026-11-17 — Windows support: own venv + launchers, FFmpeg 7+ `-/filter_complex`, Git Bash
   `/c/...` paths, console encoding. Tests pass on WSL (76) and Windows (75 + 1 Linux-only skip).
+- 2026-11-17 — Published on GitHub (public, MIT): github.com/danju4rizzl/kv-media.
+- 2026-11-17 — Item 11 planned: FastAPI web API + Docker + free Hugging Face Space
+  (`docs/web-api-plan.md`). Next is still 2b.

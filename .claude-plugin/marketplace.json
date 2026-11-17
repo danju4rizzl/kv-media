@@ -1,0 +1,19 @@
+{
+  "name": "kv-media",
+  "owner": {
+    "name": "danju4rizzl"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for cleaning up audio and video recordings."
+  },
+  "plugins": [
+    {
+      "name": "kvm",
+      "source": "./plugin",
+      "description": "Remove pauses, filler words (um, ah) and repeated phrases from audio and video recordings, with guided FFmpeg and kvm setup.",
+      "version": "0.2.0",
+      "license": "MIT",
+      "keywords": ["audio", "video", "ffmpeg", "podcast", "editing", "filler-words", "silence-removal"]
+    }
+  ]
+}

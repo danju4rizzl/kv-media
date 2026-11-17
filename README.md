@@ -1,5 +1,9 @@
 # kv-media (`kvm`)
 
+> **AI agents:** to set up kvm for your user, read and follow
+> [llms.txt](https://raw.githubusercontent.com/danju4rizzl/kv-media/main/llms.txt). It installs FFmpeg, kvm
+> and the `clean-recording` skill only where they are missing, and works for Claude Code and other agents.
+
 Remove the unimportant parts of a recording: pauses, filler words (um, ah, ...) and repeated
 words, phrases and restarted sentences.
 A feature-by-feature rebuild of `kavara-audio-enhancer` that **leaves the voice alone**:
@@ -40,6 +44,20 @@ Check with `kvm --version`.
 and can save it to `~/.config/kvm/.env`. It is also read from `GEMINI_API_KEY` in the environment,
 a `.env` in the current folder, or a `.env` in this project folder. Transcripts are saved in
 `~/.cache/kvm/transcripts/`, so re-running or changing options never pays for Gemini twice.
+
+## Use it from Claude Code (plugin)
+
+Let Claude run kvm for you: it checks for FFmpeg and kvm, walks you through installing them,
+previews the cuts and exports when you agree.
+
+```
+/plugin install kvm --marketplace danju4rizzl/kv-media
+```
+
+(On older Claude Code: `/plugin marketplace add danju4rizzl/kv-media`, then `/plugin install kvm@kv-media`.)
+
+Then just ask, e.g. *"remove the pauses and ums from talk.mp4"*, or run `/kvm:clean-recording talk.mp4`.
+Filler and repeat removal need a Gemini API key; Claude will tell you where to put it. Don't paste it into the chat.
 
 ## Interactive mode
 

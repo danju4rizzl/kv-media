@@ -1,0 +1,29 @@
+# kv-media (kvm)
+
+> kvm is a command-line tool that removes pauses, filler words (um, ah) and repeated phrases from audio and video recordings without degrading the voice. This file tells AI coding agents (Claude Code, Codex, Cursor, Gemini CLI, Copilot and others) how to set kvm up for a user and how to run it.
+
+## Setup instructions for AI agents
+
+Do these steps in order and skip any step that is already done. Tell the user what you will install, and why, before you install anything.
+
+1. **Check what is already there.** Run `ffmpeg -version`, `ffprobe -version` and `kvm --version`. If all three work, kvm is set up: go to step 4.
+2. **FFmpeg missing:** install it for the user's OS: Windows `winget install --id Gyan.FFmpeg -e`; macOS `brew install ffmpeg`; Debian/Ubuntu/WSL `sudo apt update && sudo apt install -y ffmpeg`; Fedora `sudo dnf install -y ffmpeg`; Arch `sudo pacman -S ffmpeg`. If a command needs `sudo`, ask the user to run it themselves. On Windows, open a new terminal (or restart the agent) before checking again.
+3. **kvm missing:** it needs Python 3.10+. Install it with the first tool that is available: `uv tool install git+https://github.com/danju4rizzl/kv-media`, or `pipx install git+https://github.com/danju4rizzl/kv-media`, or `python -m pip install --user git+https://github.com/danju4rizzl/kv-media`. Confirm with `kvm --version`.
+4. **Add the agent skill (if your agent supports it):**
+   - Claude Code: check `claude plugin list` for `kvm@kv-media`. If it is missing, run `claude plugin marketplace add danju4rizzl/kv-media` and then `claude plugin install kvm@kv-media` (or, inside a session, `/plugin marketplace add danju4rizzl/kv-media` then `/plugin install kvm@kv-media`). The user restarts Claude Code to load it.
+   - Agents that read `SKILL.md` skill folders (for example Codex in `~/.codex/skills/`, or a project `.agents/skills/` folder): copy the skill below into a folder named `clean-recording` in your skills directory, if it is not already there.
+   - Any other agent: read the skill file below and follow it whenever the user asks to clean a recording.
+5. **Gemini API key (only for filler and repeat removal):** pause removal is free and local. For fillers and repeats, kvm reads `GEMINI_API_KEY` from the environment, a `.env` in the current folder, or `~/.config/kvm/.env`. Never ask the user to paste the key into the chat and never print it. Point them to https://aistudio.google.com/apikey and ask them to put the key in `~/.config/kvm/.env` as `GEMINI_API_KEY=...` themselves.
+
+## How to run kvm as an agent
+
+- Always pass removal flags (`--pauses`, `--fillers`, `--repeats` or `--all`). Plain `kvm` opens an interactive wizard that an agent shell cannot answer.
+- Preview first with `--dry-run`, summarise the cuts for the user, then run the same command without `--dry-run` to export.
+- Output goes to `./kvm_output/<name>_kvm.<ext>` plus a cut report. Never overwrite the source file.
+- Example: `kvm "talk.mp4" --all --dry-run`, then `kvm "talk.mp4" --all`.
+
+## Files
+
+- [Agent skill (full workflow)](https://raw.githubusercontent.com/danju4rizzl/kv-media/main/plugin/skills/clean-recording/SKILL.md): setup checks, flag choice, preview, tuning and export.
+- [README](https://raw.githubusercontent.com/danju4rizzl/kv-media/main/README.md): install, every flag and output quality details.
+- [AGENTS.md](https://raw.githubusercontent.com/danju4rizzl/kv-media/main/AGENTS.md): rules for agents changing kv-media's own code (not needed just to use kvm).
