@@ -123,8 +123,9 @@ def export(
     with_video: bool,
     work_dir: Path,
     on_progress: Callable[[float], None] | None = None,
+    metadata: dict[str, str] | None = None,
 ) -> None:
-    """Write ``output``.
+    """Write ``output``. ``metadata`` (e.g. title) is set in the final pass, no extra encode.
 
     Audio only: one pass. With video: the edited audio is rendered first to a lossless
     32-bit float WAV, then the video is cut and both are encoded together. Two passes because
@@ -138,6 +139,8 @@ def export(
     audio_script, video_script = tmp.with_suffix(".audio.txt"), tmp.with_suffix(".video.txt")
     audio_wav = tmp.with_suffix(".wav")
     audio_script.write_text(build_audio_graph(segments, info), encoding="utf-8")
+    tags = [arg for key, value in (metadata or {}).items() if value
+            for arg in ("-metadata", f"{key}={value}")]
 
     def scaled(lo: float, hi: float) -> Callable[[float], None] | None:
         return (lambda f: on_progress(lo + (hi - lo) * f)) if on_progress else None
@@ -147,7 +150,7 @@ def export(
             codec = AUDIO_ARGS.get(output.suffix.lower(), VIDEO_AUDIO_ARGS)
             ffmpeg.run_with_progress(
                 ["-y", "-i", str(info.path), *ffmpeg.filter_script_args(audio_script),
-                 "-map", "[aout]", "-vn", *_audio_codec_args(info, codec), str(output)],
+                 "-map", "[aout]", "-vn", *_audio_codec_args(info, codec), *tags, str(output)],
                 "audio export", total, on_progress)
             return
 
@@ -162,7 +165,7 @@ def export(
                 *_audio_codec_args(info, VIDEO_AUDIO_ARGS)]
         if output.suffix.lower() in (".mp4", ".mov"):
             args += ["-movflags", "+faststart"]
-        ffmpeg.run_with_progress([*args, str(output)], "video export", total, scaled(0.1, 1.0))
+        ffmpeg.run_with_progress([*args, *tags, str(output)], "video export", total, scaled(0.1, 1.0))
     finally:
         for f in (audio_script, video_script, audio_wav):
             f.unlink(missing_ok=True)

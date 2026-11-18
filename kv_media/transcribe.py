@@ -44,16 +44,65 @@ def model_name() -> str:
 
 
 # ---- cache -------------------------------------------------------------------
+# Keyed by the file's CONTENT (size + samples of its bytes), not its path, so the same video
+# opened from Windows (C:\...) and WSL (/mnt/c/...), or after a move/rename, is never paid
+# for twice. On WSL the Windows user cache is shared too (read and written).
 
-def _cache_path(info: ffmpeg.MediaInfo) -> Path:
+HASH_SAMPLE = 1 << 20      # bytes read from the start, middle and end of the file
+
+
+def cache_dir() -> Path:
+    env = os.environ.get("KVM_CACHE_DIR")
+    return Path(env).expanduser() / "transcripts" if env else CACHE_DIR
+
+
+def _is_wsl() -> bool:
+    try:
+        return "microsoft" in Path("/proc/version").read_text(encoding="utf-8", errors="replace").lower()
+    except OSError:
+        return False
+
+
+def shared_cache_dirs() -> list[Path]:
+    """Other kvm caches for this user that can hold the same transcripts (WSL -> Windows)."""
+    if os.name == "nt" or not _is_wsl():
+        return []
+    return sorted(p for p in Path("/mnt/c/Users").glob("*/.cache/kvm/transcripts") if p.is_dir())
+
+
+def _all_cache_dirs() -> list[Path]:
+    dirs = [cache_dir()]
+    return dirs + [d for d in shared_cache_dirs() if d.resolve() != dirs[0].resolve()]
+
+
+def content_key(path: Path) -> str:
+    size = path.stat().st_size
+    digest = hashlib.sha1(str(size).encode("utf-8"))
+    with path.open("rb") as f:
+        for offset in sorted({0, max(0, size // 2 - HASH_SAMPLE // 2), max(0, size - HASH_SAMPLE)}):
+            f.seek(offset)
+            digest.update(f.read(HASH_SAMPLE))
+    return digest.hexdigest()
+
+
+def _cache_digest(info: ffmpeg.MediaInfo) -> str:
+    return hashlib.sha1(f"{content_key(info.path)}|{model_name()}".encode("utf-8")).hexdigest()[:16]
+
+
+def _cache_name(info: ffmpeg.MediaInfo) -> str:
+    """The name is only for humans; lookups use the content digest after the last '-c'."""
+    return f"{info.path.stem[:40]}-c{_cache_digest(info)}.json"
+
+
+def _legacy_cache_path(info: ffmpeg.MediaInfo) -> Path:
+    """Before v0.3 the key was the absolute path + size + mtime (still read, then migrated)."""
     stat = info.path.stat()
     ident = f"{info.path.resolve()}|{stat.st_size}|{int(stat.st_mtime)}|{model_name()}"
     digest = hashlib.sha1(ident.encode("utf-8")).hexdigest()[:16]
-    return CACHE_DIR / f"{info.path.stem[:40]}-{digest}.json"
+    return cache_dir() / f"{info.path.stem[:40]}-{digest}.json"
 
 
-def load_cached(info: ffmpeg.MediaInfo) -> list[Word] | None:
-    path = _cache_path(info)
+def _read(path: Path) -> list[Word] | None:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         return [Word(**w) for w in data["words"]]
@@ -61,11 +110,30 @@ def load_cached(info: ffmpeg.MediaInfo) -> list[Word] | None:
         return None
 
 
+def load_cached(info: ffmpeg.MediaInfo) -> list[Word] | None:
+    digest = _cache_digest(info)
+    for folder in _all_cache_dirs():
+        for path in sorted(folder.glob(f"*-c{digest}.json")):
+            words = _read(path)
+            if words is not None:
+                return words
+    words = _read(_legacy_cache_path(info))
+    if words is not None:
+        save_cached(info, words)          # migrate, so Windows/WSL can share it from now on
+    return words
+
+
 def save_cached(info: ffmpeg.MediaInfo, words: list[Word]) -> None:
-    path = _cache_path(info)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"source": str(info.path), "model": model_name(), "words": [asdict(w) for w in words]}
-    path.write_text(json.dumps(payload), encoding="utf-8")
+    payload = json.dumps({"source": str(info.path), "model": model_name(),
+                          "words": [asdict(w) for w in words]})
+    name = _cache_name(info)
+    for i, folder in enumerate(_all_cache_dirs()):
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / name).write_text(payload, encoding="utf-8")
+        except OSError:
+            if i == 0:
+                raise                       # the main cache must work; shared ones are a bonus
 
 
 # ---- response parsing ----------------------------------------------------------

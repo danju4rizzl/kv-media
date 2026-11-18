@@ -43,7 +43,9 @@ Check with `kvm --version`.
 **Gemini API key** (only for fillers/repeats): the wizard asks for it the first time (hidden input)
 and can save it to `~/.config/kvm/.env`. It is also read from `GEMINI_API_KEY` in the environment,
 a `.env` in the current folder, or a `.env` in this project folder. Transcripts are saved in
-`~/.cache/kvm/transcripts/`, so re-running or changing options never pays for Gemini twice.
+`~/.cache/kvm/transcripts/` (or `$KVM_CACHE_DIR/transcripts/`), matched by the file's **content**,
+so re-running, changing options, renaming or moving the file never pays for Gemini twice. On WSL
+the Windows kvm cache is shared too, so a file opened from both sides is transcribed once.
 
 ## Use it from Claude Code (plugin)
 
@@ -69,13 +71,64 @@ kvm "talk.mp4"      # start the wizard with this file
 1. **Choose a file**: pick a number from the media files in the current folder, or paste / drag
    a file or folder path. Quotes, PowerShell's `& '...'`, Windows paths in WSL and `~` all work.
 2. **Task**: *Video* (cut picture + sound) or *Audio only* (WAV, FLAC, MP3 or M4A).
-3. **What to remove**: pick one or more, e.g. `1,2,3` (the default):
+3. **What to remove**: pick one or more; Enter = all of them (`1,2,3,4`):
    1. Pauses / dead air (free, local)
    2. Filler words: um, ummm, ah, ahhh, er, hmm ... (Gemini)
    3. Repeated words / phrases said 2-3x in a row, and restarted sentences (Gemini). The last take is kept.
-4. **Preview**: original vs new length, a breakdown by type, and every cut with the words it removes.
-   `e` export, `a` show all cuts, `c` change what to remove, `s` change pause sensitivity, `q` quit.
-5. **Export**: `kvm_output/<name>_kvm.<ext>` plus `<name>_kvm_cuts.txt`.
+   4. AI review (Gemini text model, cheap): fillers the word list misses ("you know", "basically"),
+      words that make no sense, stumbles and false starts. **Added automatically whenever 2 or 3 is
+      picked.** You approve each suggestion before anything is cut.
+4. **Preview**: original vs new length, a breakdown by type, a **timeline** of where the cuts fall,
+   the **longest pauses** (with their times), and every cut with the words it removes.
+   `e` export, `a` show all cuts, `k` keep some cuts (by number, e.g. `3,5-7`), `u` undo kept cuts,
+   `l` long silences (cut / shorten / keep), `c` change what to remove, `s` change pause sensitivity, `q` quit.
+5. **Title (optional, Gemini)**: 5 SEO-friendly title ideas from the transcript, each with a different
+   hook (curiosity, how-to, list, benefit, bold claim). Pick, edit, regenerate or write your own.
+   The title becomes the file name and is embedded in the file; a `_seo.txt` gets the description,
+   tags and hashtags. Pause-only runs transcribe once for this (cached). If Google's newest model is
+   busy (error 503), kvm moves straight on to another Gemini text model.
+6. **Export**: `kvm_output/<name>_kvm.<ext>` plus `<name>_kvm_cuts.txt`, and `<name>_kvm_transcript.md`
+   whenever there is a transcript. When a title/SEO pack is chosen, all output files (export, cuts report,
+   transcript, SEO pack) are kept together in their own folder: `kvm_output/<title>/`.
+
+**Transcript as Markdown.** One numbered, timestamped line per sentence, verbatim (fillers, repeats
+and false starts kept), with `[pause N.Ns]` marks, e.g.
+`[2] (00:16.6) If you come to the Lovable Docs, I would leave the link in the in in the course material.`
+Read it yourself, or paste it into an AI to spot messy sentences. `kvm talk.mp4 --transcript` writes
+only this file (free when the transcript is already saved; otherwise one Gemini transcription).
+
+**Cut by editing the transcript (free).** Open `kvm_output/<name>_kvm_transcript.md` (or the one from
+`--transcript`), strike out what you want gone with `~~ ~~` and save:
+
+    [141] (13:39.3) ~~We could do a P uh PAW is it P [pause 1.1s]~~ We could do PRW.
+    ~~[142] (13:46.6) Oh man, come on.~~
+
+Run kvm on the same recording again: the wizard finds the edited transcript and asks to cut
+those words (`kvm talk.mp4 --edits`, or `--edits path.md`, in direct mode). Strikes may cover a
+word, a whole line or run over several lines. Words said twice in a line are cut where you struck
+them. If you also fixed typos in a line, the struck words are found by their text. No Gemini call;
+the cuts are aligned to the audio like any word cut, and a transcript with strikes is never
+overwritten.
+
+**Word cuts follow the audio.** Gemini's word times are coarse (0.1 s), so each filler/repeat cut
+is moved to the quietest moment within 150 ms, the real gap between words. That avoids leftover
+"mmm" tails and clipped neighbouring words. `--no-align` turns it off.
+
+**AI review (option 4 / `--ai-review`, automatic with fillers or repeats).** The filler list only
+knows fixed words (um, uh, er ...), so whenever you remove fillers or repeats kvm also runs the AI
+review on the same transcript. Turn that off with `--no-ai-review` or `KVM_AI_REVIEW=off` (in `.env`
+or the environment; also applies to the wizard). A cheap text model (`gemini-2.5-flash-lite`, change with
+`GEMINI_REVIEW_MODEL`) reads the Markdown transcript and quotes words to cut, by line, with a reason
+(`nonsense`, `false-start`, `repeat`, `filler`) and a confidence. kvm finds the quoted words in that
+line, uses their real times and aligns the cuts to the audio. In the wizard you see every suggestion
+and approve them (Enter = the ones at 0.8+ confidence, `all`, `none` or numbers); `i` in the preview
+changes it later. `--ai-review` alone cuts suggestions with confidence >= `--ai-min-confidence`
+(default 0.8); add `--dry-run` to see them all first. One call per file, saved in
+`~/.cache/kvm/reviews/`, so re-planning is free. It can only judge words that are in the transcript,
+and a word that looks like nonsense may be Gemini mishearing you: approve with care.
+
+**Long silences (10 s+)** are often screen demos where you show something without talking.
+They are listed in the preview; choose to cut them, shorten each to a few seconds, or keep them.
 
 ## Direct mode (no questions)
 
@@ -95,6 +148,10 @@ kvm talk.mp4 --pauses --silence-threshold -45 --min-pause 1.0 --keep 0.3
 | `--fillers` | | Remove filler words from the filler list (Gemini) |
 | `--repeats` | | Remove repeated words/phrases and restarted sentences (Gemini) |
 | `--all` | | `--pauses --fillers --repeats` |
+| `--ai-review` | | AI suggests cuts (missed fillers, nonsense words, stumbles, false starts); cuts those >= `--ai-min-confidence`. On automatically with `--fillers` / `--repeats` / `--all` |
+| `--edits [MD]` | | Cut the words you struck out (`~~ ~~`) in the transcript; finds it in `kvm_output/` without a path |
+| `--no-ai-review` | | Do not add the AI review automatically to `--fillers` / `--repeats` / `--all` (or `KVM_AI_REVIEW=off`) |
+| `--ai-min-confidence N` | `0.8` | Confidence (0-1) an AI suggestion needs to be cut in direct mode |
 | `--words-file PATH` | `fillers.txt` | Your own filler list |
 | `--audio-only` | | Export only the edited sound |
 | `--format EXT` | | `wav`, `flac`, `mp3`, `m4a`, `ogg`, `opus` (implies `--audio-only`) |
@@ -102,7 +159,12 @@ kvm talk.mp4 --pauses --silence-threshold -45 --min-pause 1.0 --keep 0.3
 | `--silence-threshold DB` | `-35` | Quieter than this counts as a pause. Noisy room? Try `-30`. Cutting into quiet words? Try `-45` |
 | `--min-pause SEC` | `0.6` | Only pauses longer than this are shortened |
 | `--keep SEC` | `0.2` | Natural pause left on each side of a cut |
-| `--dry-run` | | Show the cuts, write nothing |
+| `--long-pauses MODE` | `cut` | Silences of 10 s+: `cut`, `shorten` or `keep` |
+| `--long-keep SEC` | `2` | Seconds left by `--long-pauses shorten` |
+| `--no-align` | | Use Gemini's word times as-is (don't snap word cuts to the quiet gap) |
+| `--transcript` | | Only write `<name>_transcript.md` (`-o notes/talk.md` to choose the file) |
+| `--ai-title` | | Name the export with the top AI title + write `<title>_seo.txt` (Gemini) |
+| `--dry-run` | | Show the cuts, longest pauses and timeline, write nothing |
 
 ## Filler list
 
