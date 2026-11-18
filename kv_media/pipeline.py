@@ -32,6 +32,13 @@ def ai_review_auto() -> bool:
     return os.environ.get("KVM_AI_REVIEW", "").strip().lower() not in {"off", "0", "no", "false"}
 
 
+def pack_dir_auto() -> bool:
+    """True unless the user switched pack subdirectories off (KVM_PACK_DIR=off/0/no/false,
+    in the environment or a .env file)."""
+    keys.load_env_files()
+    return os.environ.get("KVM_PACK_DIR", "").strip().lower() not in {"off", "0", "no", "false"}
+
+
 @dataclass
 class Job:
     source: Path
@@ -44,6 +51,7 @@ class Job:
     fmt: str | None = None
     output: str | None = None
     ai_title: bool = False
+    pack_dir: bool = field(default_factory=pack_dir_auto)
     align_words: bool = True              # snap word cuts to the quiet gap between words
     long_pauses: str = "cut"              # pauses >= pauses.LONG_PAUSE_SECONDS: cut | shorten | keep
     long_keep: float = 2.0                # seconds of silence left when shortening
@@ -302,13 +310,13 @@ def apply_title(plan: Plan, title: str, pack: titles.TitlePack | None = None) ->
         return
 
     slug = titles.filename_slug(title)
-    if pack is not None:
-        base_dir = plan.output.parent.parent if plan.seo is not None else plan.output.parent
-        current_dir = plan.output.parent if plan.seo is not None else None
+    is_in_pack_dir = bool(plan.seo and plan.title and plan.output.parent.name == titles.filename_slug(plan.title))
+    base_dir = plan.output.parent.parent if is_in_pack_dir else plan.output.parent
+    if pack is not None and plan.job.pack_dir:
+        current_dir = plan.output.parent if is_in_pack_dir else None
         pack_dir = titles.unique_pack_dir(base_dir, slug, keep=current_dir)
         named = pack_dir / f"{pack_dir.name}{plan.output.suffix}"
     else:
-        base_dir = plan.output.parent.parent if plan.seo is not None else plan.output.parent
         named = base_dir / f"{slug}{plan.output.suffix}"
         named = titles.unique_path(named)
 

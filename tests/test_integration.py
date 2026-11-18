@@ -253,6 +253,18 @@ def test_direct_ai_title_uses_top_title(video, tmp_path, monkeypatch, capsys):
     assert "also: [curiosity]" in capsys.readouterr().out
 
 
+def test_direct_ai_title_respects_no_pack_dir(video, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    _fake_transcript(monkeypatch, [Word(w, i * 0.4, i * 0.4 + 0.3) for i, w in enumerate("a b c d e f".split())])
+    _fake_titles(monkeypatch)
+    assert main([str(video), "--pauses", "--ai-title", "--no-pack-dir"]) == 0
+    flat_file = tmp_path / "kvm_output" / "how-i-cut-dead-air-from-videos-in-5-minutes.mp4"
+    flat_seo = tmp_path / "kvm_output" / "how-i-cut-dead-air-from-videos-in-5-minutes_seo.txt"
+    assert flat_file.exists() and flat_seo.exists()
+    assert not (tmp_path / "kvm_output" / "how-i-cut-dead-air-from-videos-in-5-minutes").is_dir()
+
+
 def test_direct_ai_title_failure_still_exports(video, tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("GEMINI_API_KEY", "k")

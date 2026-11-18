@@ -133,7 +133,7 @@ standard Whisper tends to drop them. Local Whisper stays a later option (item 9)
 ### 2c. AI title + SEO pack — `Done` (branch `feat/word-cut-tuning`) — needs a real Gemini check
 - Wizard step 5 / `--ai-title`: 5 titles with different hooks (keyword in first 40 chars, 40-60 chars,
   honest), SEO pack (keyword, description, tags, hashtags) -> `<title>_seo.txt`; title is the file
-  name (slug) and embedded metadata; all files in a pack are grouped into `kvm_output/<title>/`. Text model `gemini-2.5-flash-lite` (`GEMINI_TITLE_MODEL`; cheapest and rarely busy). When a
+  name (slug) and embedded metadata; all files in a pack are grouped into `kvm_output/<title>/` by default (configurable via `--pack-dir` / `--no-pack-dir` or `KVM_PACK_DIR=off`). Text model `gemini-2.5-flash-lite` (`GEMINI_TITLE_MODEL`; cheapest and rarely busy). When a
   model is busy (503/429), missing or replies badly, `gemini_text.py` moves straight on to
   3.1-flash-lite, 2.5-flash, 3.5-flash-lite, 3.5-flash; if all are busy it waits 10 s and tries
   one more round. The AI review uses the same chain. Review quotes may miss up to 2 words.

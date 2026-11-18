@@ -46,6 +46,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="only write the transcript as Markdown (<name>_transcript.md); no export")
     p.add_argument("--ai-title", action="store_true",
                    help="name the export with an AI title from the transcript + write an SEO pack (Gemini)")
+    p.add_argument("--pack-dir", dest="pack_dir", action="store_true", default=None,
+                   help="group pack outputs (video, transcript, report, SEO) into a subfolder "
+                        "(default: on; or set KVM_PACK_DIR=on)")
+    p.add_argument("--no-pack-dir", dest="pack_dir", action="store_false",
+                   help="write pack outputs flat in the output folder instead of a subfolder "
+                        "(or set KVM_PACK_DIR=off)")
     p.add_argument("--audio-only", action="store_true", help="export only the edited audio")
     p.add_argument("--format", metavar="EXT", help="audio format: wav, flac, mp3, m4a, ... (implies --audio-only)")
     p.add_argument("-o", "--output", metavar="PATH", help=f"output file or folder (default: ./{paths.OUTPUT_DIR}/)")
@@ -86,6 +92,8 @@ def _job_from_args(args: argparse.Namespace) -> pipeline.Job:
     )
     if not args.no_ai_review:
         job.apply_auto_ai_review()
+    if args.pack_dir is not None:
+        job.pack_dir = args.pack_dir
     if args.edits and args.edits != "auto":
         job.edits = paths.clean_path(args.edits)
     elif args.edits == "auto" and args.file:

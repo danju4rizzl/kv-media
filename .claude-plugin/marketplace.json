@@ -11,7 +11,7 @@
       "name": "kvm",
       "source": "./plugin",
       "description": "Remove pauses, filler words (um, ah) and repeated phrases from audio and video recordings, with guided FFmpeg and kvm setup.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "MIT",
       "keywords": ["audio", "video", "ffmpeg", "podcast", "editing", "filler-words", "silence-removal"]
     }

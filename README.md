@@ -164,6 +164,8 @@ kvm talk.mp4 --pauses --silence-threshold -45 --min-pause 1.0 --keep 0.3
 | `--no-align` | | Use Gemini's word times as-is (don't snap word cuts to the quiet gap) |
 | `--transcript` | | Only write `<name>_transcript.md` (`-o notes/talk.md` to choose the file) |
 | `--ai-title` | | Name the export with the top AI title + write `<title>_seo.txt` (Gemini) |
+| `--pack-dir` | `on` | Group pack outputs (video, transcript, report, SEO) into a subfolder |
+| `--no-pack-dir` | | Write pack outputs flat in the output folder instead of a subfolder (or `KVM_PACK_DIR=off`) |
 | `--dry-run` | | Show the cuts, longest pauses and timeline, write nothing |
 
 ## Filler list

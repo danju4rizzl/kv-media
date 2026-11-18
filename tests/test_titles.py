@@ -105,6 +105,34 @@ def test_apply_title_handles_folder_collision(tmp_path):
     assert plan.output == tmp_path / "kvm_output" / "video-title-2" / "video-title-2.mp4"
 
 
+def test_apply_title_respects_no_pack_dir(tmp_path):
+    from fractions import Fraction
+    from kv_media import ffmpeg, pipeline
+    job = pipeline.Job(source=tmp_path / "input.mp4", pack_dir=False)
+    info = ffmpeg.MediaInfo(tmp_path / "input.mp4", 10.0, 0, 44100, 2, "aac", 1, Fraction(30, 1), 0.0)
+    plan = pipeline.Plan(job, info, [], [], tmp_path / "kvm_output" / "input_kvm.mp4")
+    pack = titles.TitlePack(titles=[titles.Title("How to Master AI Terminal Commands", "how-to")])
+    pipeline.apply_title(plan, pack.titles[0].text, pack)
+
+    # When pack_dir is False, files are written flat in the output folder
+    assert plan.output == tmp_path / "kvm_output" / "how-to-master-ai-terminal-commands.mp4"
+    assert plan.seo_path == tmp_path / "kvm_output" / "how-to-master-ai-terminal-commands_seo.txt"
+    assert plan.transcript_path == tmp_path / "kvm_output" / "how-to-master-ai-terminal-commands_transcript.md"
+    assert plan.report_path == tmp_path / "kvm_output" / "how-to-master-ai-terminal-commands_cuts.txt"
+
+
+def test_pack_dir_auto_env(monkeypatch):
+    from kv_media import pipeline
+    monkeypatch.delenv("KVM_PACK_DIR", raising=False)
+    assert pipeline.pack_dir_auto() is True
+    for val in ("off", "0", "false", "no", "OFF", "False"):
+        monkeypatch.setenv("KVM_PACK_DIR", val)
+        assert pipeline.pack_dir_auto() is False
+    for val in ("on", "1", "true", "yes", "ON", "True"):
+        monkeypatch.setenv("KVM_PACK_DIR", val)
+        assert pipeline.pack_dir_auto() is True
+
+
 def test_transcript_text_keeps_start_and_end():
     words = [Word(f"w{i}", i, i + 0.5) for i in range(5000)]
     text = titles.transcript_text(words, limit=2000)

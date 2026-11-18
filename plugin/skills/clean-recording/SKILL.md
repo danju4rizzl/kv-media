@@ -95,6 +95,9 @@ Output options:
 - Video in, video out is the default. For sound only: `--audio-only`, or `--format wav|flac|mp3|m4a|ogg|opus`.
 - Output goes to `./kvm_output/<name>_kvm.<ext>` plus `<name>_kvm_cuts.txt`. Use `-o PATH`
   for another folder or file name.
+- AI titles & SEO packs: `--ai-title` suggests titles and writes `<title>_seo.txt`.
+- Pack subfolders: `--pack-dir` (default: on) groups all files from an AI title pack into `./kvm_output/<title>/`.
+  Use `--no-pack-dir` to write files flat in the output folder (or set `KVM_PACK_DIR=off`).
 
 If no file was named, list media files in the current folder and ask which one. Quote paths
 that contain spaces.
@@ -124,6 +127,8 @@ export as is, change what to remove, or adjust pause sensitivity.
 | too choppy, cut every small gap | raise `--min-pause` (default 0.6 s), e.g. `1.0` |
 | joins feel rushed | raise `--keep` (default 0.2 s of pause kept on each side), e.g. `0.35` |
 | a word is wrongly treated as a filler | use a custom list: copy the default `fillers.txt`, edit it, pass `--words-file PATH` |
+| output files flat instead of in a pack subfolder | `--no-pack-dir` (or set `KVM_PACK_DIR=off`) |
+| group pack files into a dedicated subfolder | `--pack-dir` (default) |
 
 Rerun the dry run after each change and summarise what changed.
 

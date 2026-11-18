@@ -307,7 +307,7 @@ def ask_title(plan: pipeline.Plan) -> None:
             ui.warn(f"{len(title)} characters: may be cut off in search results (60 or fewer is best).")
         pipeline.apply_title(plan, title, pack)
         ui.info(f"Title : {ui.bold(plan.title)}")
-        if plan.output.parent != plan.output.parent.parent:
+        if plan.output.parent != plan.output.parent.parent and plan.job.pack_dir:
             ui.info(f"Folder: {plan.output.parent}")
         ui.info(f"File  : {plan.output.name}")
         return
