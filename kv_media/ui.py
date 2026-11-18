@@ -54,6 +54,15 @@ def choose(prompt: str, options: list[tuple[str, str]], default: str) -> str:
         warn(f"Please enter one of: {', '.join(k for k, _ in options)}")
 
 
+def choose_quiet(prompt: str, keys: list[str], default: str) -> str:
+    """Like choose(), when the options were already printed by the caller."""
+    while True:
+        answer = ask(prompt, default).lower()
+        if answer in keys:
+            return answer
+        warn(f"Please enter one of: {', '.join(keys)}")
+
+
 def progress(fraction: float, width: int = 30) -> None:
     filled = int(width * fraction)
     bar = "#" * filled + "-" * (width - filled)

@@ -15,6 +15,8 @@ Just want to install and use kvm for a user? Follow [llms.txt](llms.txt) instead
 - **One lossy encode**, at the very end. No 16-bit intermediate files between stages.
 - Pad cuts and crossfade joins so word onsets/tails are never clipped.
 - Gemini only transcribes; cut decisions are local code. Transcribe once.
+  Exception (opt-in): the AI review only SUGGESTS cuts; the user approves them (or sets a
+  confidence threshold). It never cuts on its own, and its results are cached.
 
 ## Output
 - All output goes to `kvm_output/` in the current directory (or `--output`). Never next to the source.

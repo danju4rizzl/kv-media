@@ -109,10 +109,35 @@ standard Whisper tends to drop them. Local Whisper stays a later option (item 9)
 - Gemini only transcribes; it never decides cuts.
 - Flags: `--fillers`, `--repeats`, `--words-file`.
 
-### 2b. Real-file tuning of word cuts — `Next`
-- Run `kvm 0001.mp4 --fillers --repeats --dry-run`, review false positives / misses.
-- Listen to filler joins mid-speech; tune crossfade (30 ms) and maybe a few ms of padding if
-  Gemini's word timestamps clip neighbouring words.
+### 2b. Real-file tuning of word cuts — `Next` (in progress, branch `feat/word-cut-tuning`)
+- Findings from real transcripts (2026-11-18): Gemini word times sit on a 0.1 s grid, some words are
+  zero-length; some transcripts contain **no fillers at all** even in VERBATIM (Lovable Connectors,
+  Before you create a PRD), so audible ums stay. Transcript cache was keyed by path, so WSL and
+  Windows paid twice for the same file.
+- **Shipped on the branch:** content-keyed transcript cache shared WSL <-> Windows (`KVM_CACHE_DIR`);
+  word cuts snapped to the quietest point within 150 ms (`refine.py`, local FFmpeg envelope; cut
+  edges on loud audio 76 -> 30 and 11 -> 1 on two real lectures); preview timeline, longest pauses,
+  keep single cuts (`k`/`u`), long silences 10 s+ cut / shorten / keep (`--long-pauses`).
+- Markdown transcript (`transcript_md.py`, `--transcript`, written with every export that has words):
+  numbered timestamped lines = stable ids for a later AI review ("line 12, remove '...'").
+- AI review (`review.py`, wizard option 4 / `--ai-review`): `gemini-2.5-flash-lite` reads the Markdown
+  and quotes words to cut (nonsense / false-start / repeat / filler) with confidence; kvm matches the
+  quote in that line (with "before" words to tell repeats apart), aligns the cut, and the user approves
+  (wizard) or `--ai-min-confidence` decides (direct). Cached per transcript + model + prompt version.
+  Note: this bends "Gemini only transcribes" on purpose: AI suggests, the user decides.
+  Not yet checked against real model output.
+- Still to do: listen to the joins on a real export; catch fillers Gemini missed (voiced sounds in
+  word gaps -> "possible filler" for review); optional looser repeats; speed-up for long silences
+  (screen demos) needs per-segment speed in the render graph; cut markers for video editors.
+
+### 2c. AI title + SEO pack — `Done` (branch `feat/word-cut-tuning`) — needs a real Gemini check
+- Wizard step 5 / `--ai-title`: 5 titles with different hooks (keyword in first 40 chars, 40-60 chars,
+  honest), SEO pack (keyword, description, tags, hashtags) -> `<title>_seo.txt`; title is the file
+  name (slug) and embedded metadata; all files in a pack are grouped into `kvm_output/<title>/`. Text model `gemini-2.5-flash-lite` (`GEMINI_TITLE_MODEL`; cheapest and rarely busy). When a
+  model is busy (503/429), missing or replies badly, `gemini_text.py` moves straight on to
+  3.1-flash-lite, 2.5-flash, 3.5-flash-lite, 3.5-flash; if all are busy it waits 10 s and tries
+  one more round. The AI review uses the same chain. Review quotes may miss up to 2 words.
+- Idea: Claude as title engine via `claude -p` (uses a Claude subscription, no API key).
 
 ### 3. Batch mode — files, folders, globs — `Planned`
 
@@ -164,3 +189,9 @@ standard Whisper tends to drop them. Local Whisper stays a later option (item 9)
 - 2026-11-17 — Published on GitHub (public, MIT): github.com/danju4rizzl/kv-media.
 - 2026-11-17 — Item 11 planned: FastAPI web API + Docker + free Hugging Face Space
   (`docs/web-api-plan.md`). Next is still 2b.
+- 2026-11-18 — Item 2c (AI title + SEO pack) built. Item 2b: content-keyed shared cache, word cuts
+  aligned to the audio, preview timeline / longest pauses / keep cuts / long-silence modes,
+  Markdown transcript (`--transcript`), AI review with approval (`--ai-review`), on automatically with fillers/repeats
+  (`--no-ai-review` / `KVM_AI_REVIEW=off` to opt out). Text calls fall back to other models when one is busy.
+  Cut by striking words in the transcript (`edits.py`, `--edits`, wizard asks); wizard default
+  selects every removal option. 187 tests.

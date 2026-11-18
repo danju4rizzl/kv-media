@@ -55,6 +55,31 @@ def silences_to_cuts(
     return cuts
 
 
+LONG_PAUSE_SECONDS = 10.0     # silences this long are often screen demos: user decides
+
+
+def is_long(cut: Cut) -> bool:
+    return cut.reason == "pause" and cut.duration >= LONG_PAUSE_SECONDS
+
+
+def apply_long_mode(cuts: list[Cut], mode: str, keep_seconds: float) -> list[Cut]:
+    """cut: remove long silences like any pause. keep: leave them alone.
+    shorten: leave ``keep_seconds`` of each long silence (half each side), remove the rest."""
+    if mode == "cut":
+        return cuts
+    out = []
+    for cut in cuts:
+        if not is_long(cut):
+            out.append(cut)
+        elif mode == "shorten":
+            half = max(0.0, keep_seconds) / 2
+            if cut.duration - 2 * half >= MIN_CUT_SECONDS:
+                out.append(Cut(round(cut.start + half, 4), round(cut.end - half, 4), "pause"))
+        elif mode != "keep":
+            raise ValueError(f"Unknown long-pause mode '{mode}'.")
+    return out
+
+
 def find_silences(info: ffmpeg.MediaInfo, threshold_db: float, min_length: float) -> list[tuple[float, float]]:
     if not info.has_audio:
         raise ffmpeg.FFmpegError(f"{info.path.name} has no audio track, so pauses cannot be found.")

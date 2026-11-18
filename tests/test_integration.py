@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from kv_media import ffmpeg, pipeline, transcribe
+from kv_media import ffmpeg, pipeline, titles, transcribe
 from kv_media.cli import main
 from kv_media.transcribe import Word
 
@@ -100,8 +100,8 @@ def test_dry_run_writes_nothing(video, tmp_path, monkeypatch, capsys):
 
 def test_wizard_end_to_end(video, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    # step1: paste quoted path, step2: video, step3: pauses only, step4: export
-    answers = iter([f'"{video}"', "1", "1", "e"])
+    # step1: paste quoted path, step2: video, step3: pauses only, step4: export, step5: no AI title
+    answers = iter([f'"{video}"', "1", "1", "e", "n"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
     assert main([]) == 0
     assert (tmp_path / "kvm_output" / "clip_kvm.mp4").exists()
@@ -165,8 +165,8 @@ def test_wizard_all_three_with_key_prompt(video, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     calls = _fake_transcript(monkeypatch, [Word("um", 0.2, 0.6), Word("okay.", 2.6, 3.2)])
     monkeypatch.setattr("getpass.getpass", lambda _prompt="": "typed-key")
-    # file, video, all three (default), save key? y, preview -> change removals -> 1,2 -> export
-    answers = iter(["1", "1", "", "y", "c", "1,2", "e"])
+    # file, video, all three (default), save key? y, preview -> change removals -> 1,2 -> export, no title
+    answers = iter(["1", "1", "", "y", "c", "1,2", "e", "n"])
     monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
     assert main([]) == 0
     assert calls == ["typed-key"]                      # transcribed once, reused after the change
@@ -177,3 +177,104 @@ def test_direct_mode_without_key_is_a_clean_error(video, tmp_path, monkeypatch, 
     monkeypatch.chdir(tmp_path)
     assert main([str(video), "--fillers"]) == 1
     assert "Gemini API key" in capsys.readouterr().err
+
+
+# ---- AI title (Gemini mocked) -------------------------------------------------------
+
+PACK_JSON = """{"titles": [
+  {"title": "How I Cut Dead Air From Videos in 5 Minutes", "style": "how-to", "why": "clear outcome"},
+  {"title": "Why Your Videos Feel Slow (and the Easy Fix)", "style": "curiosity", "why": "gap"}],
+ "keyword": "cut dead air", "description": "Learn to cut dead air fast. Short and clear.",
+ "tags": ["cut dead air", "video editing"], "hashtags": ["#videoediting", "editing tips"]}"""
+
+
+def _fake_titles(monkeypatch, fail=False):
+    calls = []
+
+    def fake(words, duration, is_video, api_key, avoid=None):
+        calls.append({"words": len(words), "avoid": avoid})
+        if fail:
+            raise titles.TitleError("Gemini title request failed: 503")
+        return titles.parse_pack(PACK_JSON)
+    monkeypatch.setattr(titles, "generate", fake)
+    return calls
+
+
+def _probe_title(path: Path) -> str:
+    return subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format_tags=title",
+                           "-of", "csv=p=0", str(path)], capture_output=True, text=True,
+                          check=True).stdout.strip()
+
+
+def test_wizard_ai_title_pick_edit_and_export(video, tmp_path, monkeypatch, capsys):
+    """Pause-only run: the title step transcribes once, then names + tags the export."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    transcripts = _fake_transcript(monkeypatch, [Word(w, i * 0.4, i * 0.4 + 0.3)
+                                                 for i, w in enumerate("today I show how to cut dead air".split())])
+    calls = _fake_titles(monkeypatch)
+    # file, video, pauses only, export, AI title? y, new ideas, pick 2, keep text as is
+    answers = iter(["1", "1", "1", "e", "y", "r", "2", ""])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+    assert main([]) == 0
+    assert transcripts == ["k"]                          # transcribed once for the title
+    assert calls[1]["avoid"] and len(calls) == 2         # regenerate passes the rejected ideas
+    pack_dir = tmp_path / "kvm_output" / "why-your-videos-feel-slow-and-the-easy-fix"
+    out_file = pack_dir / "why-your-videos-feel-slow-and-the-easy-fix.mp4"
+    assert out_file.exists()
+    assert _probe_title(out_file) == "Why Your Videos Feel Slow (and the Easy Fix)"
+    seo = (pack_dir / "why-your-videos-feel-slow-and-the-easy-fix_seo.txt").read_text(encoding="utf-8")
+    assert "#videoediting #editingtips" in seo and "cut dead air, video editing" in seo
+    assert "[how-to] How I Cut Dead Air" in seo
+    report = (pack_dir / "why-your-videos-feel-slow-and-the-easy-fix_cuts.txt").read_text(encoding="utf-8")
+    assert "Title  : Why Your Videos Feel Slow" in report
+
+
+def test_wizard_ai_title_write_own(video, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    _fake_transcript(monkeypatch, [Word(w, i * 0.4, i * 0.4 + 0.3) for i, w in enumerate("a b c d e f".split())])
+    _fake_titles(monkeypatch)
+    answers = iter(["1", "1", "1", "e", "y", "w", "My Own Title: Café & Co"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+    assert main([]) == 0
+    assert (tmp_path / "kvm_output" / "my-own-title-cafe-and-co" / "my-own-title-cafe-and-co.mp4").exists()
+
+
+def test_direct_ai_title_uses_top_title(video, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    _fake_transcript(monkeypatch, [Word(w, i * 0.4, i * 0.4 + 0.3) for i, w in enumerate("a b c d e f".split())])
+    _fake_titles(monkeypatch)
+    assert main([str(video), "--pauses", "--ai-title"]) == 0
+    pack_dir = tmp_path / "kvm_output" / "how-i-cut-dead-air-from-videos-in-5-minutes"
+    out_file = pack_dir / "how-i-cut-dead-air-from-videos-in-5-minutes.mp4"
+    assert out_file.exists() and (pack_dir / f"{out_file.stem}_seo.txt").exists()
+    assert "also: [curiosity]" in capsys.readouterr().out
+
+
+def test_direct_ai_title_failure_still_exports(video, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    _fake_transcript(monkeypatch, [Word(w, i * 0.4, i * 0.4 + 0.3) for i, w in enumerate("a b c d e f".split())])
+    _fake_titles(monkeypatch, fail=True)
+    assert main([str(video), "--pauses", "--ai-title"]) == 0
+    assert (tmp_path / "kvm_output" / "clip_kvm.mp4").exists()
+    assert "No AI title" in capsys.readouterr().out
+
+
+def test_ai_title_respects_explicit_output_file(video, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GEMINI_API_KEY", "k")
+    _fake_transcript(monkeypatch, [Word(w, i * 0.4, i * 0.4 + 0.3) for i, w in enumerate("a b c d e f".split())])
+    _fake_titles(monkeypatch)
+    target = tmp_path / "final.mp4"
+    assert main([str(video), "--pauses", "--ai-title", "-o", str(target)]) == 0
+    assert target.exists() and _probe_title(target) == "How I Cut Dead Air From Videos in 5 Minutes"
+
+
+def test_ai_title_without_key_is_a_warning_not_a_failure(video, tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert main([str(video), "--pauses", "--ai-title"]) == 0
+    assert "AI titles need a Gemini API key" in capsys.readouterr().out
+    assert (tmp_path / "kvm_output" / "clip_kvm.mp4").exists()
